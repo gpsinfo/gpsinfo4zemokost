@@ -23,6 +23,7 @@
 
 # Qt, qgis and osgeo modules
 from PyQt5.QtWidgets import QTableWidgetItem
+from PyQt5.QtCore import QCoreApplication # import QCoreApplication.processEvents
 from osgeo import gdal, ogr
 from qgis.core import QgsProject, QgsMapLayer, QgsWkbTypes
 from osgeo.osr import SpatialReference
@@ -35,6 +36,7 @@ from numpy import array, ndarray
 from .gpsinfo4zemokost_dialog import GpsInfo4ZemokostWarningDlg
 
 
+
 # This function (process) is the outer frame of the result creation.
 # The main task of downloading and processing the tiles is done by 
 # the function clipped_raster, defined below.
@@ -45,7 +47,7 @@ def process(dlg):
     TD = {'NCOLS':150, 'NROWS':150, 'EPSG':'EPSG:31287',
           'XLL':106549.267203768890, 'YLL':273692.512073625810, 
           'CELLSIZE':10.000000000000, 'NODATA':-99999}
-    
+
     # decide whether to calculate mean only for ...
     # ... selected feature (False) or entire layer (True)
     only_sel = dlg.onlySelFeat.isChecked()
@@ -76,21 +78,19 @@ def process(dlg):
     dlg.progressBar.setMaximum(nr_of_tiles)
     dlg.setProgressValue(0)
 
-
+    #dlg.label.setText(str(nr_of_tiles))
     # The features in feats may contain no data points. Define a counter for those features which have
     # no no data points, that is, only valid points.
     j = 0
 
+    # collect the clipped datasets in case we want to save them
+    clipped_datasets = []
+
     # Define a warning message for features containing no data points
     warning = ''
     for i in range(len(feats)):
-        # file_path is a path to save the elevation data clipped to the extent of the feature. 
-        # If empty ( '' ), it will not be saved.
-        # This feature is purely for testing and checking the results. 
-        # file_path = '/home/user/clipped_' + str(feature.id()) + '.asc'
-        file_path = ''
-        vals, nodata_pt = clipped_raster(dlg, feats[i], TD, 
-                                            file_path = file_path)
+
+        vals, nodata_pt = clipped_raster(dlg, feats[i], TD, clipped_datasets)
             
         if len(nodata_pt) == 0:
 
@@ -103,18 +103,41 @@ def process(dlg):
             # fill the result table
             dlg.resultTable.setItem(j, 0, QTableWidgetItem(str(feats[i].attributes()[0])))
             dlg.resultTable.setItem(j, 1, QTableWidgetItem('({:.1f}, {:.1f})'.format(c.x(), c.y() )))
-            dlg.resultTable.setItem(j, 2, QTableWidgetItem('{:.0f}'.format(feats[i].geometry().area() )))
-            dlg.resultTable.setItem(j, 3, QTableWidgetItem(' '))
-            dlg.resultTable.setItem(j, 4, QTableWidgetItem('{:.5f}'.format(sum(vals) / len(vals) )))
+            # area in square km:
+            dlg.resultTable.setItem(j, 2, QTableWidgetItem('{:.5f}'.format(feats[i].geometry().area() / 1000000 )))
+            dlg.resultTable.setItem(j, 3, QTableWidgetItem('{:.5f}'.format(sum(vals) / len(vals) )))
 
             dlg.resultTable.resizeColumnsToContents()
             j += 1
+            QCoreApplication.processEvents()
         else:
             warning += 'Im Feature {} = {} wurde an den Koordinaten ({:.0f}, {:.0f}) ein Punkt ohne Daten gefunden.\n\n'.format(feats[i].fields()[0].name(), str(feats[i].attributes()[0]), nodata_pt[0], nodata_pt[1]) 
             #dlg.setProgressValue(0)
     
+    if dlg.rasterFilePath.text() != '':
+        dlg.progressBar.setFormat('Speichere Rasterdaten')
+        QCoreApplication.processEvents()
+        # file_path is a path to save the elevation data clipped to the extent of the feature. 
+        # If empty ( '' ), it will not be saved.
+        # This feature is purely for testing and checking the results. 
+        file_path = '/home/andreas/clipped_' + str(feats[i].id()) + '.asc'
+        # file_path = ''
+
+        import tempfile
+        tf = []         # temporary files, in case we want to write to disk
+        for ds in clipped_datasets:
+            tf.append(tempfile.NamedTemporaryFile(prefix='ame_temp_', suffix='.asc', delete=True))
+            gdal.Translate(tf[-1].name, ds, format = 'AAIGrid')
+        vrt = gdal.BuildVRT('',[f.name for f in tf], srcNodata = TD['NODATA'], VRTNodata = TD['NODATA'])
+        gdal.Translate(dlg.rasterFilePath.text(), vrt, format = 'AAIGrid') 
+        for f in tf:
+            f.close()    
+
+
+    dlg.progressBar.setFormat('Berechnung beendet.')
     # enable save button
     dlg.saveButton.setEnabled(True)
+
         
     return warning
 
@@ -122,7 +145,7 @@ def process(dlg):
 # for given "feature", the following function computes which tiles are necessary,
 # downloads them from the internet, clips the tiles to the extent of the feature
 # and collects the data values in a list, called "vals".
-def clipped_raster(dlg, feature, TD, file_path = False):
+def clipped_raster(dlg, feature, TD, clipped_datasets):
     # TD --- basically contains the data stored in the header of 0_0.asc 
     # file_path --- if empty string or false, the clipped tiles are not saved.
     #               if it is a filename, they are saved. This is for checking the result!            
@@ -174,8 +197,7 @@ def clipped_raster(dlg, feature, TD, file_path = False):
     # initialize the return values
     vals = list()
     nodata_pt = []
-    data_counter = 0
-    tf = list()         # temporary files, in case we want to write to disk
+    # data_counter = 0
 
     # iterate through all the tiles needed to cover the bounding box of the feature
     for ix in range(nr_of_tiles_x):
@@ -183,7 +205,7 @@ def clipped_raster(dlg, feature, TD, file_path = False):
             ##########
             # STEP 2.1
             ##########
-            # check if the tile (ix,iy) really intersects the feature
+            # check if the tile (ix,iy) really intersects the feature:
             # create a rectangle of the size of the tile
             # to be on safe side, make rectangle slightly smaller than tile
             x_left = TD['XLL'] + ((ix + tile_nr_left) * TD['NCOLS'] +1) * TD['CELLSIZE']
@@ -200,8 +222,6 @@ def clipped_raster(dlg, feature, TD, file_path = False):
 
             poly = ogr.Geometry(ogr.wkbPolygon)
             poly.AddGeometry(rect)
-            
-
 
             # only download and process the tile if it intersects the feature (geom)
             # and if no no-data points have been found yet
@@ -218,7 +238,7 @@ def clipped_raster(dlg, feature, TD, file_path = False):
     
 
                 ##########
-                # STEP 2.3, rasterize the polygon feature
+                # STEP 2.3, rasterize the polygon feature. "_m" means "mask".
                 ##########
                 driver_m = gdal.GetDriverByName( 'MEM' )
                 ds_m = driver_m.Create('', TD['NCOLS'], TD['NROWS'], 1, gdal.GDT_Int32)
@@ -230,31 +250,33 @@ def clipped_raster(dlg, feature, TD, file_path = False):
                 ##########
                 # STEP 2.3, multiply the rasterized polygon with the downloaded tile, thereby creating clipped_array
                 ##########
-                clipped_arr = ds_m.ReadAsArray() * ds_www.ReadAsArray()
-                shp = clipped_arr.shape
+                array_m = ds_m.ReadAsArray()
+                array_www = ds_www.ReadAsArray()
+                shp = array_www.shape
+                clipped_arr = ndarray(shp, dtype=float)
+                clipped_arr[:,:] = TD['NODATA']  # initizialize with nodata value
 
                 # iterate over the elements of the array
                 for i in range(shp[0]):
                     for j in range(shp[1]):
-                        # check whether there is a nodata point. If so, save it to nodata_pt
-                        if clipped_arr[i,j] == TD['NODATA']:
-                            nodata_pt = gdal.ApplyGeoTransform(geo_trafo, j + 0.5, i + 0.5)
-                        elif clipped_arr[i,j] != 0:
-                           vals.append(clipped_arr[i,j])
-                           data_counter += 1
-
+                        if array_m[i,j] == 1:       # if "(i,j)" is inside polygon:
+                            if array_www[i,j] == TD['NODATA']:      # if point is nodata point
+                                nodata_pt = gdal.ApplyGeoTransform(geo_trafo, j + 0.5, i + 0.5)
+                            else:
+                                clipped_arr[i, j] = array_www[i, j]
+                                vals.append(array_www[i,j])
+                                # data_counter += 1
           
                 # if desired, collect clipped tiles in temporary files
-                if bool(file_path):
+                if dlg.rasterFilePath.text() != '':
                     driver_w = gdal.GetDriverByName( 'MEM' )
                     ds_w = driver_w.Create('', TD['NCOLS'], TD['NROWS'], 1, gdal.GDT_Float32)
                     ds_w.SetGeoTransform(geo_trafo)
     
                     # write the new array to the mask band
                     ds_w.GetRasterBand(1).WriteArray(clipped_arr)
-                    import tempfile
-                    tf.append(tempfile.NamedTemporaryFile(prefix='ame_temp_', suffix='.asc', delete=True))
-                    gdal.Translate(tf[-1].name, ds_w, format = 'AAIGrid')
+                    clipped_datasets.append(ds_w)
+
 
             else:
                 # this is the case that either we have already found a no data point inside the polygon
@@ -262,15 +284,8 @@ def clipped_raster(dlg, feature, TD, file_path = False):
                 pass  
             
             dlg.setProgressValue(dlg.progressBar.value()+1)
+            QCoreApplication.processEvents()
             
-
-    # If we want to save the clipped tiles, merge them in a vrt and save to disk
-    if bool(file_path): 
-        vrt = gdal.BuildVRT('',[f.name for f in tf])
-        gdal.Translate(file_path, vrt, format = 'AAIGrid')
-        for f in tf:
-            f.close()    
-
     return vals, nodata_pt
 
 def load_layers(iface):
