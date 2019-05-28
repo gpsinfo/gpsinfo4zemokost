@@ -163,7 +163,6 @@ class GpsInfo4ZemokostMainDlg(QDialog, FORM_CLASS):
                 self.rasterFilePath.setText(file_path)
 
 
-
     def clear_result(self):     # this is smaller sister of update(). Connected to state change of checkbox
         self.setProgressValue(0)
         # clear the result table
