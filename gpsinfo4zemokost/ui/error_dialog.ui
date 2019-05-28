@@ -6,24 +6,33 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>390</width>
-    <height>205</height>
+    <width>103</width>
+    <height>70</height>
    </rect>
   </property>
   <property name="sizePolicy">
-   <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
     <horstretch>0</horstretch>
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
+  <property name="minimumSize">
+   <size>
+    <width>0</width>
+    <height>0</height>
+   </size>
+  </property>
   <property name="windowTitle">
-   <string>Warnung</string>
+   <string>Fehler</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="sizeConstraint">
+    <enum>QLayout::SetDefaultConstraint</enum>
+   </property>
    <item>
     <layout class="QVBoxLayout" name="verticalLayout_2">
      <item>
-      <widget class="QLabel" name="warning">
+      <widget class="QLabel" name="message">
        <property name="text">
         <string/>
        </property>
@@ -38,23 +47,15 @@
     </layout>
    </item>
    <item alignment="Qt::AlignHCenter">
-    <widget class="QPushButton" name="closeButton">
+    <widget class="QPushButton" name="ok">
      <property name="maximumSize">
       <size>
-       <width>104</width>
+       <width>592</width>
        <height>16777215</height>
       </size>
      </property>
-     <property name="layoutDirection">
-      <enum>Qt::LeftToRight</enum>
-     </property>
      <property name="text">
-      <string>Schließen</string>
-     </property>
-     <property name="icon">
-      <iconset theme="window-close">
-       <normaloff/>
-      </iconset>
+      <string>Ok</string>
      </property>
     </widget>
    </item>
@@ -62,21 +63,4 @@
  </widget>
  <resources/>
  <connections/>
- <designerdata>
-  <property name="gridDeltaX">
-   <number>10</number>
-  </property>
-  <property name="gridDeltaY">
-   <number>10</number>
-  </property>
-  <property name="gridSnapX">
-   <bool>true</bool>
-  </property>
-  <property name="gridSnapY">
-   <bool>true</bool>
-  </property>
-  <property name="gridVisible">
-   <bool>true</bool>
-  </property>
- </designerdata>
 </ui>
