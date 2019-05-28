@@ -153,6 +153,12 @@ class GpsInfoForZemokost:
             # show the main dialog / start the plugin
             self.dlg = gps_info.GpsInfo4ZemokostMainDlg(self.iface)
             self.dlg.update()
+            width = 40  # this is approx. margin plus vertical header width
+            for i in range(5):
+                width += self.dlg.resultTable.columnWidth(i)
+            self.dlg.setMinimumWidth(width)
+            self.dlg.resize(width, self.dlg.size().height())
+
             self.dlg.show()
             # at this point, we leave this file and continue in gps_info_4_zemokost_dialog.py
             # through the functions connected to the various buttons of the dialog
@@ -160,5 +166,7 @@ class GpsInfoForZemokost:
             # print the error message
             self.errormessage = gps_info.GpsInfo4ZemokostErrorDlg()
             self.errormessage.message.setText(em)
+            self.errormessage.adjustSize()
+            self.errormessage.setMinimumSize(self.errormessage.size())
             self.errormessage.show()
 
