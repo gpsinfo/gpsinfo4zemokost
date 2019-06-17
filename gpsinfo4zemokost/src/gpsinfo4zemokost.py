@@ -147,6 +147,13 @@ class GpsInfoForZemokost:
                 except r.exceptions.ConnectionError: # in this case, the problem is user's internet connection
                     em = ('gpsinfo4zemokost kann keine Verbindung zum Server http://gpsinfo.org herstellen. '
                           'Bitte überprüfen Sie Ihre Internetverbindung.')
+            else:    # also check whether we can access and unzip data from the server, here, tile (1,1)
+                # number of rows of alternatively downloaded dataset
+
+                if fm.gdal_downloader(1, 1) == None and fm.alt_downloader(1, 1) == None: # if gdal.Open does not work
+                    em = ('gpsinfo4zemokost kann nicht auf die Daten auf dem Server http://gpsinfo.org zugreifen. '
+                          'Bitte versuchen Sie es zu einem späteren Zeitpunkt erneut.')
+
 
         # now either start pluging or show error dialog
         if em == '':

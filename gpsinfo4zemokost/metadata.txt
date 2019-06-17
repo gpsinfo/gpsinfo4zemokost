@@ -10,14 +10,14 @@
 name=gpsinfo4zemokost
 qgisMinimumVersion=3.0
 description=Calculate the average slope of a polygon (layer)
-version=0.1
+version=20190617
 author=Rechenraum e.U.
 email=andreas.fuchs@rechenraum.com
 
 about=This plugin calculates the average slope of a polygon layer or polygon feature located in Austria.
 
-tracker=http://bugs
-repository=http://repo
+tracker=https://github.com/gpsinfo/gpsinfo4zemokost
+repository=https://github.com/gpsinfo/gpsinfo4zemokost
 # End of mandatory metadata
 
 # Recommended items:
@@ -28,7 +28,7 @@ repository=http://repo
 # Tags are comma separated with spaces allowed
 tags=python
 
-homepage=http://homepage
+homepage=http://gpsinfo.org/gpsinfo4zemokost/
 category=Plugins
 icon=icon.png
 # experimental flag

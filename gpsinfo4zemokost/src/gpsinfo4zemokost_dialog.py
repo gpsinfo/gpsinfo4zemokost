@@ -201,6 +201,10 @@ class GpsInfo4ZemokostMainDlg(QDialog, FORM_CLASS):
         self.resultTable.setHorizontalHeaderItem(0, QTableWidgetItem(first_field))
         self.resultTable.resizeColumnsToContents()
 
+        # set the "save Raster data" checkbox to unselected and file name to empty
+        self.rasterCheck.setChecked(False)
+        self.rasterFilePath.setText('')        
+
 
     def start_preprocess(self):   # Connected to Start button. Checks the size of the selected features and
         # displays a warning, when they are bigger than 200 square-km. If warning is ignored or not needed,
@@ -214,21 +218,22 @@ class GpsInfo4ZemokostMainDlg(QDialog, FORM_CLASS):
         else:
             feats = list(self.selected_layer.getFeatures())
 
+        pre_warning = '' # initizalization
+
+        if self.rasterFilePath.text() == '' and self.rasterCheck.isChecked():
+            pre_warning = 'Sie haben keinen Dateinamen zum Speichern der Rasterdaten angegeben. Wollen Sie fortfahren ohne die Daten zu speichern?\n\n'
+
         # calculate covered area
         area = 0
         for f in feats:
             area += f.geometry().area() / 1000000
 
-        pre_warning = ''
-        if self.rasterFilePath.text() == '' and self.rasterCheck.isChecked():
-            pre_warning = 'Sie haben keinen Dateinamen zum Speichern der Rasterdaten angegeben. Wollen Sie fortfahren ohne die Daten zu speichern?\n\n'
-
         if area > 200:
             # The data on server takes about 120 kb / square-km.
             pre_warning += (u'Die ausgewählten Features sind {:.0f} km\u00b2 groß. Für die Berechnung '
                        'müssen ungefähr {:.0f} Megabyte an Daten heruntergeladen werden. ').format(area, area * 0.12)
-            if self.rasterFilePath.text() != '':
-                # in order to check how the big the raster file will be, we create a vector layer
+            if self.rasterFilePath.text() != '' and self.rasterCheck.isChecked():
+                # in order to check how big the raster file will be, we create a vector layer
                 # containing the features and compute its bounding box
                 l = qgis.core.QgsVectorLayer("Polygon?crs=epsg:31287", "selected_feature_layer", "memory")
                 l.dataProvider().addFeatures(feats)
@@ -237,10 +242,10 @@ class GpsInfo4ZemokostMainDlg(QDialog, FORM_CLASS):
                 ext = l.extent()
                 bdbox_area = (ext.xMaximum() - ext.xMinimum()) * (ext.yMaximum() - ext.yMinimum()) / 1000000
                 # an ESRI-Grid File occupies about 8.657244 MB per square-km
-                pre_warning += ('Die gespeicherten Rasterdaten werden ungefähr {:.0f} Megabyte'
+                pre_warning += ('Die gespeicherten Rasterdaten können bis zu {:.0f} Megabyte'
                             ' an Platz in Anspruch nehmen. ').format(bdbox_area * 0.2667)
 
-            pre_warning += 'Dies kann einige Zeit in Anspruch nehmen.'
+            pre_warning += '\n\nDies kann einige Zeit in Anspruch nehmen. Wollen Sie die Abfrage trotzdem starten?'
         if pre_warning != '':
             self.size_warn_dlg = GpsInfo4ZemokostSizeWarningDlg(self)
             self.size_warn_dlg.warning.setText(pre_warning)
@@ -252,20 +257,19 @@ class GpsInfo4ZemokostMainDlg(QDialog, FORM_CLASS):
        
 
     def start_process(self):       #Basically calls fm.process, which calls fm.clipped_raster,
-        # found in function_module.py. Those two functions do the main processing and return a (hopefully empty) warning message.
+        # found in function_module.py. Those two functions do the main processing 
+        # and possibly add warning messages tp self.post_warn_dlg
 
 
         # first clear the result, just in case it hasn't happened.
         self.clear_result()
 
+        # construct instance of a post warning dialogs
+        self.post_warn_dlg = GpsInfo4ZemokostWarningDlg()      
         # now do the processing and possibly get a warning message
-        warning = fm.process(self)
-        if warning != '':
-            self.warn_dlg = GpsInfo4ZemokostWarningDlg()
-            self.warn_dlg.warning.setText(warning)
-            self.warn_dlg.adjustSize()
-            #self.warn_dlg.setMinimumSize(self.size())
-            self.warn_dlg.show()
+        fm.process(self, self.post_warn_dlg)
+
+        self.post_warn_dlg.show_if_nonempty()
     
     def keyPressEvent(self, event):     # override the key press event to define keyboard shortcuts
 
@@ -398,7 +402,7 @@ class GpsInfo4ZemokostAbout(QDialog, FORM_CLASS_ABOUT):
         self.setMinimumSize(self.size())
         
 ###########################################
-# create the dialog for the warning message
+# create the dialog for the post computation warning message
 FORM_CLASS_WARN, _ = uic.loadUiType(os.path.join(
     os.path.dirname(__file__), '../ui/warning_dialog.ui'))
 
@@ -408,6 +412,19 @@ class GpsInfo4ZemokostWarningDlg(QDialog, FORM_CLASS_WARN):
         super(GpsInfo4ZemokostWarningDlg, self).__init__(parent)
         self.setupUi(self)
         self.closeButton.clicked.connect(self.reject)
+
+        # store the warning messages here
+        self.warning_text = ''
+
+    def add_warning(self, text):
+        self.warning_text += text + '\n\n'
+
+    def show_if_nonempty(self):
+        if self.warning_text != '':
+            self.warning_text = self.warning_text.rstrip('\n\n')
+            self.warning.setText(self.warning_text)
+            self.adjustSize()
+            self.show()
 
 ###########################################
 # create the dialog for the second warning message
