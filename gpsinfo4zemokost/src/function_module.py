@@ -45,7 +45,7 @@ TD = {'NCOLS':150, 'NROWS':150, 'EPSG':'EPSG:31287',
       'CELLSIZE':10.000000000000, 'NODATA':-99999}
 
 www_layer_name = 'AT_OGD_DHM_LAMB_10M_SLOPE'
-www_folder = 'http://gpsinfo.org/service/' + www_layer_name + '_COMPRESSED/'
+www_folder = 'https://austrian-geodata-services.org/gpsinfo/' + www_layer_name + '_COMPRESSED/'
 
 # This function (process) is the outer frame of the result creation.
 # The main task of downloading and processing the tiles is done by 
