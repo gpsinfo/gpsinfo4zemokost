@@ -134,7 +134,7 @@ class GpsInfoForZemokost:
         # check server access
         else:
             try:
-                r.get('http://gpsinfo.org/')
+                r.get('https://austrian-geodata-services.org/')
                 connection = True
             except r.exceptions.ConnectionError:
                 connection = False
